@@ -22,4 +22,15 @@ wheels/
 .venv
 env/
 venv/
+*.db
+*.sqlite
+*.sqlite3
+.pytest_cache/
+.coverage
+htmlcov/
+.mypy_cache/
+.ruff_cache/
+.pythonlibs/
+.upm/
 .cache/
+uv.lock
