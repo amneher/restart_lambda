@@ -1,5 +1,7 @@
 """Tags endpoint."""
 
+from __future__ import annotations
+
 from typing import Any
 
 from ..models.tag import Tag, TagCreate, TagUpdate

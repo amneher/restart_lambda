@@ -1,5 +1,7 @@
 """Posts endpoint."""
 
+from __future__ import annotations
+
 from typing import Any
 
 from ..models.post import Post, PostCreate, PostUpdate, PostStatus

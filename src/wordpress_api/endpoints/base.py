@@ -1,6 +1,8 @@
 """Base endpoint class."""
 
-from typing import Any, TypeVar, Generic
+from __future__ import annotations
+
+from typing import Any, TypeVar, Generic, TYPE_CHECKING
 from collections.abc import Iterator
 
 from pydantic import BaseModel
