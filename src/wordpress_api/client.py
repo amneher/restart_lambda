@@ -25,6 +25,8 @@ from .endpoints.search import SearchEndpoint
 from .endpoints.blocks import BlocksEndpoint
 from .endpoints.revisions import RevisionsEndpoint
 from .endpoints.autosaves import AutosavesEndpoint
+from .endpoints.post_types import PostTypesEndpoint
+from .endpoints.statuses import StatusesEndpoint
 
 
 class WordPressClient:
@@ -120,6 +122,8 @@ class WordPressClient:
         self.blocks = BlocksEndpoint(self)
         self.revisions = RevisionsEndpoint(self)
         self.autosaves = AutosavesEndpoint(self)
+        self.post_types = PostTypesEndpoint(self)
+        self.statuses = StatusesEndpoint(self)
 
     def _request(
         self,

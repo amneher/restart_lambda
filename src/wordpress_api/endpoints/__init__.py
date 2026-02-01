@@ -16,6 +16,8 @@ from .search import SearchEndpoint
 from .blocks import BlocksEndpoint
 from .revisions import RevisionsEndpoint
 from .autosaves import AutosavesEndpoint
+from .post_types import PostTypesEndpoint
+from .statuses import StatusesEndpoint
 
 __all__ = [
     "PostsEndpoint",
@@ -34,4 +36,6 @@ __all__ = [
     "BlocksEndpoint",
     "RevisionsEndpoint",
     "AutosavesEndpoint",
+    "PostTypesEndpoint",
+    "StatusesEndpoint",
 ]

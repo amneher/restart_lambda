@@ -585,6 +585,8 @@ def main() -> None:
         ("client.revisions", "Post/Page Revisions"),
         ("client.autosaves", "Post/Page Autosaves"),
         ("client.custom_post_type()", "Custom Post Types"),
+        ("client.post_types", "Post Types Registry"),
+        ("client.statuses", "Post Statuses Registry"),
     ]
     
     for endpoint, description in endpoints:
