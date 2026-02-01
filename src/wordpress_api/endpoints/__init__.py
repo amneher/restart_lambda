@@ -18,6 +18,7 @@ from .revisions import RevisionsEndpoint
 from .autosaves import AutosavesEndpoint
 from .post_types import PostTypesEndpoint
 from .statuses import StatusesEndpoint
+from .application_passwords import ApplicationPasswordsEndpoint
 
 __all__ = [
     "PostsEndpoint",
@@ -38,4 +39,5 @@ __all__ = [
     "AutosavesEndpoint",
     "PostTypesEndpoint",
     "StatusesEndpoint",
+    "ApplicationPasswordsEndpoint",
 ]

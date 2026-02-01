@@ -587,6 +587,7 @@ def main() -> None:
         ("client.custom_post_type()", "Custom Post Types"),
         ("client.post_types", "Post Types Registry"),
         ("client.statuses", "Post Statuses Registry"),
+        ("client.application_passwords", "Application Password Management"),
     ]
     
     for endpoint, description in endpoints:

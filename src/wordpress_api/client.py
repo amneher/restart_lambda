@@ -27,6 +27,7 @@ from .endpoints.revisions import RevisionsEndpoint
 from .endpoints.autosaves import AutosavesEndpoint
 from .endpoints.post_types import PostTypesEndpoint
 from .endpoints.statuses import StatusesEndpoint
+from .endpoints.application_passwords import ApplicationPasswordsEndpoint
 
 
 class WordPressClient:
@@ -124,6 +125,7 @@ class WordPressClient:
         self.autosaves = AutosavesEndpoint(self)
         self.post_types = PostTypesEndpoint(self)
         self.statuses = StatusesEndpoint(self)
+        self.application_passwords = ApplicationPasswordsEndpoint(self)
 
     def _request(
         self,
