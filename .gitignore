@@ -34,3 +34,5 @@ htmlcov/
 .upm/
 .cache/
 uv.lock
+*.ipynb
+.ipynb_checkpoints/
