@@ -1700,7 +1700,7 @@ requires-dist = [
     { name = "pytest", specifier = ">=9.0.2" },
     { name = "pytest-mock", specifier = ">=3.15.1" },
     { name = "uvicorn", specifier = ">=0.27.0" },
-    { name = "wp-python", specifier = "==0.1.1" },
+    { name = "wp-python", specifier = ">=0.1.3" },
 ]
 
 [package.metadata.requires-dev]
@@ -2149,7 +2149,7 @@ wheels = [
 
 [[package]]
 name = "wp-python"
-version = "0.1.1"
+version = "0.1.3"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "hatch" },
@@ -2159,7 +2159,7 @@ dependencies = [
     { name = "pytest-mock" },
     { name = "respx" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/55/88/fd44f120ce1df3554927aa75e29d51c6dff5ccb4c8a079b6212076ba0e1d/wp_python-0.1.1.tar.gz", hash = "sha256:6169a1ca5b30ec54e1d00626cf6c4901ba76898a46107603815833aabc8080d1", size = 60367 }
+sdist = { url = "https://files.pythonhosted.org/packages/f5/16/d1340665fe84ad55bf48f07c0878f228fd20be953d204d89f882bacc24d0/wp_python-0.1.3.tar.gz", hash = "sha256:7e4fefee9f363f5021bc2ae016705eceb83dd5c2137dce8120a236dcc94c78b7", size = 20812 }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/b5/cf/58277fe9f714a24e234bd99c132aed8b159611eae5b6113bb2c986645b19/wp_python-0.1.1-py3-none-any.whl", hash = "sha256:604708c403c2fda1256fcb3671570c8d868deedc8d789a8e9be8691a22cc3a08", size = 38706 },
+    { url = "https://files.pythonhosted.org/packages/1e/94/296557a2eb71c4046a617b0d8851a47f61502f960362a81ab544c60c2b59/wp_python-0.1.3-py3-none-any.whl", hash = "sha256:290026792650b9c463d3ccb106b3f24202d9510a6ced2d9d72dd36d7ec2beaed", size = 40051 },
 ]
