@@ -1,11 +1,15 @@
 from datetime import datetime
 from typing import Optional
+
 from pydantic import BaseModel, ConfigDict, Field
 
 
 class ItemBase(BaseModel):
     name: str = Field(..., min_length=1, max_length=100)
     description: Optional[str] = Field(None, max_length=500)
+    url: str = Field(..., min_length=10, max_length=250)
+    retailer: Optional[str] = Field(None, max_length=100)
+    affiliate_status: Optional[str] = Field(None, max_length=50)
     price: float = Field(..., gt=0)
     is_active: bool = Field(default=True)
 
@@ -23,7 +27,7 @@ class ItemUpdate(BaseModel):
 
 class Item(ItemBase):
     model_config = ConfigDict(from_attributes=True)
-    
+
     id: int
     created_at: datetime
     updated_at: datetime
