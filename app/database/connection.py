@@ -36,7 +36,12 @@ def init_db() -> None:
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             name TEXT NOT NULL,
             description TEXT,
+            url TEXT NOT NULL,
+            retailer TEXT,
+            affiliate_status TEXT,
             price REAL NOT NULL,
+            quantity_needed INTEGER NOT NULL DEFAULT 1,
+            quantity_purchased INTEGER NOT NULL DEFAULT 0,
             is_active INTEGER DEFAULT 1,
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
             updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP

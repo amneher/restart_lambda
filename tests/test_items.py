@@ -16,7 +16,7 @@ class TestCreateItem:
         assert "updated_at" in data["data"]
 
     def test_create_item_without_description(self, client):
-        item = {"name": "No Description", "price": 15.00}
+        item = {"name": "No Description", "url": "https://example.com/product/no-desc", "price": 15.00}
         response = client.post("/items", json=item)
         assert response.status_code == 201
         data = response.json()

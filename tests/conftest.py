@@ -29,6 +29,7 @@ def sample_item():
     return {
         "name": "Test Item",
         "description": "A test item description",
+        "url": "https://example.com/product/test-item",
         "price": 29.99,
         "is_active": True
     }
@@ -37,7 +38,7 @@ def sample_item():
 @pytest.fixture
 def sample_items():
     return [
-        {"name": "Item 1", "description": "First item", "price": 10.00, "is_active": True},
-        {"name": "Item 2", "description": "Second item", "price": 20.00, "is_active": True},
-        {"name": "Item 3", "description": "Third item", "price": 30.00, "is_active": False},
+        {"name": "Item 1", "description": "First item", "url": "https://example.com/product/1", "price": 10.00, "is_active": True},
+        {"name": "Item 2", "description": "Second item", "url": "https://example.com/product/2", "price": 20.00, "is_active": True},
+        {"name": "Item 3", "description": "Third item", "url": "https://example.com/product/3", "price": 30.00, "is_active": False},
     ]

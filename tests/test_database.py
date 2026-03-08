@@ -35,8 +35,8 @@ class TestDatabase:
     def test_insert_and_retrieve(self, db_connection):
         cursor = db_connection.cursor()
         cursor.execute(
-            "INSERT INTO items (name, price) VALUES (?, ?)",
-            ("Test Item", 25.00)
+            "INSERT INTO items (name, url, price) VALUES (?, ?, ?)",
+            ("Test Item", "https://example.com/product/test", 25.00)
         )
         db_connection.commit()
         
@@ -49,8 +49,8 @@ class TestDatabase:
     def test_update_timestamp_trigger(self, db_connection):
         cursor = db_connection.cursor()
         cursor.execute(
-            "INSERT INTO items (name, price) VALUES (?, ?)",
-            ("Trigger Test", 10.00)
+            "INSERT INTO items (name, url, price) VALUES (?, ?, ?)",
+            ("Trigger Test", "https://example.com/product/trigger-test", 10.00)
         )
         db_connection.commit()
         

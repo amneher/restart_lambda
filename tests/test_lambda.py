@@ -66,7 +66,7 @@ class TestLambdaHandler:
 
     def test_create_item_via_lambda(self):
         event = create_lambda_event(
-            "POST", "/items", {"name": "Lambda Item", "price": 50.00}
+            "POST", "/items", {"name": "Lambda Item", "url": "https://example.com/product/lambda-item", "price": 50.00}
         )
         response = handler(event, None)
 
@@ -77,7 +77,7 @@ class TestLambdaHandler:
 
     def test_get_items_via_lambda(self):
         create_event = create_lambda_event(
-            "POST", "/items", {"name": "Test", "price": 10.00}
+            "POST", "/items", {"name": "Test", "url": "https://example.com/product/test", "price": 10.00}
         )
         handler(create_event, None)
 

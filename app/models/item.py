@@ -11,6 +11,8 @@ class ItemBase(BaseModel):
     retailer: Optional[str] = Field(None, max_length=100)
     affiliate_status: Optional[str] = Field(None, max_length=50)
     price: float = Field(..., gt=0)
+    quantity_needed: int = Field(default=1, ge=1)
+    quantity_purchased: int = Field(default=0, ge=0)
     is_active: bool = Field(default=True)
 
 
@@ -22,6 +24,8 @@ class ItemUpdate(BaseModel):
     name: Optional[str] = Field(None, min_length=1, max_length=100)
     description: Optional[str] = Field(None, max_length=500)
     price: Optional[float] = Field(None, gt=0)
+    quantity_needed: Optional[int] = Field(None, ge=1)
+    quantity_purchased: Optional[int] = Field(None, ge=0)
     is_active: Optional[bool] = None
 
 

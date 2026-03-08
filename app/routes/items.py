@@ -12,7 +12,12 @@ def row_to_item(row) -> Item:
         id=row["id"],
         name=row["name"],
         description=row["description"],
+        url=row["url"],
+        retailer=row["retailer"],
+        affiliate_status=row["affiliate_status"],
         price=row["price"],
+        quantity_needed=row["quantity_needed"],
+        quantity_purchased=row["quantity_purchased"],
         is_active=bool(row["is_active"]),
         created_at=datetime.fromisoformat(row["created_at"]),
         updated_at=datetime.fromisoformat(row["updated_at"]),
@@ -51,10 +56,10 @@ def create_item(item: ItemCreate):
         cursor = conn.cursor()
         cursor.execute(
             """
-            INSERT INTO items (name, description, price, is_active)
-            VALUES (?, ?, ?, ?)
+            INSERT INTO items (name, description, url, retailer, affiliate_status, price, quantity_needed, quantity_purchased, is_active)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
             """,
-            (item.name, item.description, item.price, int(item.is_active))
+            (item.name, item.description, item.url, item.retailer, item.affiliate_status, item.price, item.quantity_needed, item.quantity_purchased, int(item.is_active))
         )
         item_id = cursor.lastrowid
         cursor.execute("SELECT * FROM items WHERE id = ?", (item_id,))

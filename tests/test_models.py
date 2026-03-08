@@ -6,14 +6,14 @@ from app.models import Item, ItemCreate, ItemUpdate, ItemResponse
 
 class TestItemCreate:
     def test_valid_item_create(self):
-        item = ItemCreate(name="Test", description="A test", price=10.00)
+        item = ItemCreate(name="Test", description="A test", url="https://example.com/product/test", price=10.00)
         assert item.name == "Test"
         assert item.description == "A test"
         assert item.price == 10.00
         assert item.is_active is True
 
     def test_item_create_without_description(self):
-        item = ItemCreate(name="Test", price=10.00)
+        item = ItemCreate(name="Test", url="https://example.com/product/test", price=10.00)
         assert item.description is None
 
     def test_item_create_invalid_price(self):
@@ -64,6 +64,7 @@ class TestItem:
             id=1,
             name="Test",
             description="Desc",
+            url="https://example.com/product/test",
             price=10.00,
             is_active=True,
             created_at=now,
@@ -80,6 +81,7 @@ class TestItemResponse:
             id=1,
             name="Test",
             description=None,
+            url="https://example.com/product/test",
             price=10.00,
             is_active=True,
             created_at=now,
