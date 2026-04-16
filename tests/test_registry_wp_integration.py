@@ -15,7 +15,7 @@ import os
 import pytest
 from wp_python.src.wordpress_api import WordPressClient, ApplicationPasswordAuth
 
-from app.models.registry import RegistryMeta, REGISTRY_REST_PATH
+from app.models.registry import RegistryMeta
 
 # ---------------------------------------------------------------------------
 # Fixtures

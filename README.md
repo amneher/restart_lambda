@@ -393,3 +393,38 @@ For persistent storage across Lambda invocations, mount an EFS volume at `/mnt/e
 3. Set `DATABASE_PATH` environment variable
 4. Attach API Gateway and configure routes to `ANY /{proxy+}`
 5. Set `RESTART_LAMBDA_URL` in WordPress to the API Gateway invoke URL
+
+## Local Manual Testing
+
+Everything is wired up. Here's a summary of what's running and how to use it:
+
+Services
+
+Service	URL
+WordPress	http://localhost:8082
+WordPress Admin	http://localhost:8082/wp-admin
+Lambda API (direct)	http://localhost:5000
+Lambda API docs	http://localhost:5000/docs
+How it's connected
+
+The restart_lambda-nginx container is on the local_wordpress_internal Docker network, so the WP container reaches Lambda at http://restart_lambda-nginx. The restart_lambda_url WP option is set to that value.
+
+From your browser, Lambda is at http://localhost:5000 (nginx → uvicorn).
+
+To test the registry in a browser
+
+Go to http://localhost:8082/wp-admin → log in
+Visit Gift Registry → Settings to confirm the Lambda URL shows http://restart_lambda-nginx
+Navigate to http://localhost:8082/registry/ to see the archive page
+Create a registry, add items, test the full flow
+Useful commands
+
+
+# Follow lambda logs (uvicorn with --reload, so code changes hot-reload)
+docker logs -f restart_lambda-app
+
+# Stop everything
+docker compose down
+
+# Restart after code changes
+docker compose restart app

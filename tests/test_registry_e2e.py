@@ -270,7 +270,7 @@ class TestRegistryE2E:
         for reg in e2e_state["registries"]:
             m = _meta_from_wp(cpt.get(reg["post_id"]))
             assert len(m.invitees) == 4
-            wp_users = [i for i in m.invitees if not "@" in i]
+            wp_users = [i for i in m.invitees if "@" not in i]
             emails = [i for i in m.invitees if "@" in i]
             assert len(wp_users) == 2
             assert len(emails) == 2

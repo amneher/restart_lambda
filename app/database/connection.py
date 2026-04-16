@@ -3,6 +3,8 @@ from contextlib import contextmanager
 from typing import Generator
 import os
 
+from app.database.migrations import run_migrations
+
 DATABASE_PATH = os.environ.get("DATABASE_PATH", "data.db")
 
 _connection: sqlite3.Connection | None = None
@@ -31,13 +33,17 @@ def get_db() -> Generator[sqlite3.Connection, None, None]:
 def init_db() -> None:
     conn = get_connection()
     cursor = conn.cursor()
+
+    # Create the full schema for fresh databases
     cursor.execute("""
         CREATE TABLE IF NOT EXISTS items (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
+            registry_id INTEGER,
             name TEXT NOT NULL,
             description TEXT,
             url TEXT NOT NULL,
             retailer TEXT,
+            affiliate_url TEXT,
             affiliate_status TEXT,
             price REAL NOT NULL,
             quantity_needed INTEGER NOT NULL DEFAULT 1,
@@ -53,6 +59,16 @@ def init_db() -> None:
         BEGIN
             UPDATE items SET updated_at = CURRENT_TIMESTAMP WHERE id = NEW.id;
         END
+    """)
+    conn.commit()
+
+    # For fresh DBs, mark all migrations as applied (schema is already complete).
+    # For existing DBs, run any pending migrations to add missing columns.
+    run_migrations(conn)
+
+    # Create indexes after migrations so columns exist
+    cursor.execute("""
+        CREATE INDEX IF NOT EXISTS idx_items_registry_id ON items(registry_id)
     """)
     conn.commit()
 

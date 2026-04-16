@@ -5,10 +5,12 @@ from pydantic import BaseModel, ConfigDict, Field
 
 
 class ItemBase(BaseModel):
+    registry_id: Optional[int] = Field(None, description="WP registry post ID this item belongs to")
     name: str = Field(..., min_length=1, max_length=100)
     description: Optional[str] = Field(None, max_length=500)
     url: str = Field(..., min_length=10, max_length=250)
     retailer: Optional[str] = Field(None, max_length=100)
+    affiliate_url: Optional[str] = Field(None, max_length=500)
     affiliate_status: Optional[str] = Field(None, max_length=50)
     price: float = Field(..., gt=0)
     quantity_needed: int = Field(default=1, ge=1)

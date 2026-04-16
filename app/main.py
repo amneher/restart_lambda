@@ -4,7 +4,7 @@ from fastapi import FastAPI
 from mangum import Mangum
 
 from app.database import close_db, init_db
-from app.routes import health_router, items_router
+from app.routes import health_router, items_router, registry_router
 
 
 @asynccontextmanager
@@ -23,5 +23,6 @@ app = FastAPI(
 
 app.include_router(health_router)
 app.include_router(items_router)
+app.include_router(registry_router)
 
 handler = Mangum(app, lifespan="off")

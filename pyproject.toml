@@ -30,3 +30,7 @@ python_functions = "test_*"
 dev = [
     "notebook>=7.5.3",
 ]
+
+[project.scripts]
+run_dev = "app.main:app"
+run_prod = "app.main:app"

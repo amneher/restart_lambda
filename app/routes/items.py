@@ -10,10 +10,12 @@ router = APIRouter(prefix="/items", tags=["Items"])
 def row_to_item(row) -> Item:
     return Item(
         id=row["id"],
+        registry_id=row["registry_id"],
         name=row["name"],
         description=row["description"],
         url=row["url"],
         retailer=row["retailer"],
+        affiliate_url=row["affiliate_url"],
         affiliate_status=row["affiliate_status"],
         price=row["price"],
         quantity_needed=row["quantity_needed"],
@@ -56,10 +58,10 @@ def create_item(item: ItemCreate):
         cursor = conn.cursor()
         cursor.execute(
             """
-            INSERT INTO items (name, description, url, retailer, affiliate_status, price, quantity_needed, quantity_purchased, is_active)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+            INSERT INTO items (registry_id, name, description, url, retailer, affiliate_url, affiliate_status, price, quantity_needed, quantity_purchased, is_active)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """,
-            (item.name, item.description, item.url, item.retailer, item.affiliate_status, item.price, item.quantity_needed, item.quantity_purchased, int(item.is_active))
+            (item.registry_id, item.name, item.description, item.url, item.retailer, item.affiliate_url, item.affiliate_status, item.price, item.quantity_needed, item.quantity_purchased, int(item.is_active))
         )
         item_id = cursor.lastrowid
         cursor.execute("SELECT * FROM items WHERE id = ?", (item_id,))
