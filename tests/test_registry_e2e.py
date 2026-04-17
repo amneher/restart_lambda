@@ -8,7 +8,7 @@ Tests the complete workflow across both systems:
 Run with:
     WP_LOCAL_URL=http://localhost:8082 \
     WP_LOCAL_USER=andrew \
-    WP_LOCAL_APP_PWD="7MYw xRf1 RoDF vAW0 ZKk3 Rh5u" \
+    WP_LOCAL_APP_PWD="JPCY 0CeI LieK QSDW fhQy U2Yd" \
     pytest tests/test_registry_e2e.py -v
 
 Tests are numbered and stateful — they run in definition order and build on
@@ -19,7 +19,7 @@ cleaned up on teardown even if individual tests fail.
 import os
 import pytest
 from fastapi.testclient import TestClient
-from wp_python.src.wordpress_api import WordPressClient, ApplicationPasswordAuth
+from wp_python import WordPressClient, ApplicationPasswordAuth
 
 from app.models.registry import RegistryMeta
 
@@ -29,7 +29,7 @@ from app.models.registry import RegistryMeta
 
 WP_URL = os.environ.get("WP_LOCAL_URL", "http://localhost:8082")
 WP_USER = os.environ.get("WP_LOCAL_USER", "andrew")
-WP_APP_PWD = os.environ.get("WP_LOCAL_APP_PWD", "7MYw xRf1 RoDF vAW0 ZKk3 Rh5u")
+WP_APP_PWD = os.environ.get("WP_LOCAL_APP_PWD", "JPCY 0CeI LieK QSDW fhQy U2Yd")
 
 NUM_USERS = 12
 ITEMS_PER_REGISTRY = 3

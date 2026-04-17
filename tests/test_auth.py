@@ -168,6 +168,7 @@ class TestValidateCredentials:
     @patch("app.auth.wp_client.get_wp_client")
     def test_successful_validation(self, mock_get_client):
         mock_client = MagicMock()
+        mock_client.__enter__.return_value = mock_client
         mock_client.users.me.return_value = _mock_wp_user()
         mock_get_client.return_value = mock_client
 
@@ -177,13 +178,14 @@ class TestValidateCredentials:
         assert user.id == 1
         assert user.username == "andrew"
         assert user.is_admin
-        mock_client.close.assert_called_once()
+        mock_client.__exit__.assert_called_once()
 
     @patch("app.auth.wp_client.get_wp_client")
     def test_invalid_credentials_returns_none(self, mock_get_client):
         from wp_python.exceptions import AuthenticationError
         mock_client = MagicMock()
-        mock_client.users.me.side_effect = AuthenticationError(401, {"message": "Invalid"})
+        mock_client.__enter__.return_value = mock_client
+        mock_client.users.me.side_effect = AuthenticationError("Invalid credentials", 401)
         mock_get_client.return_value = mock_client
 
         user = validate_credentials("Basic dGVzdDp0ZXN0")
@@ -207,6 +209,7 @@ class TestValidateCredentials:
     @patch("app.auth.wp_client.get_wp_client")
     def test_caching(self, mock_get_client):
         mock_client = MagicMock()
+        mock_client.__enter__.return_value = mock_client
         mock_client.users.me.return_value = _mock_wp_user(
             id=5, slug="cached", email="c@e.com", name="Cached",
             roles=["subscriber"], capabilities={},

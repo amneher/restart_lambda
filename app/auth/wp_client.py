@@ -61,9 +61,8 @@ def validate_credentials(authorization: str) -> WPUser | None:
     username, password = credentials
 
     try:
-        client = get_wp_client(username, password)
-        wp_user = client.users.me(context="edit")
-        client.close()
+        with get_wp_client(username, password) as client:
+            wp_user = client.users.me(context="edit")
     except (AuthenticationError, WordPressError):
         return None
     except Exception:

@@ -3,7 +3,7 @@
 from datetime import datetime
 from typing import Optional
 
-from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
+from fastapi import APIRouter, Depends, HTTPException, Query, Request, Response, status
 from pydantic import BaseModel, Field
 
 from app.auth import WPUser, get_current_user, get_wp_client
@@ -17,7 +17,7 @@ from app.models.registry import (
     RegistryUpdate,
 )
 from app.routes.items import row_to_item
-from wp_python.exceptions import NotFoundError, WordPressError
+from wp_python.exceptions import NotFoundError, PermissionError, WordPressError
 
 router = APIRouter(prefix="/registries", tags=["registries"])
 
@@ -71,20 +71,23 @@ def _post_to_registry(post: dict) -> Registry:
 @router.get("", response_model=list[Registry])
 async def list_registries(
     request: Request,
+    response: Response,
     user: WPUser = Depends(get_current_user),
     page: int = Query(1, ge=1),
     per_page: int = Query(10, ge=1, le=100),
 ):
     """List registries owned by the authenticated user."""
-    wp = _client_for_user(request)
     try:
-        cpt = wp.custom_post_type(CPT_SLUG)
-        posts = cpt.list(page=page, per_page=per_page, author=user.id, status="any")
-        return [_post_to_registry(p) for p in posts]
+        with _client_for_user(request) as wp:
+            cpt = wp.custom_post_type(CPT_SLUG)
+            posts = cpt.list(page=page, per_page=per_page, author=user.id, status="any")
+            response.headers["X-WP-Total"] = str(wp.transport.last_total_items)
+            response.headers["X-WP-TotalPages"] = str(wp.transport.last_total_pages)
+            return [_post_to_registry(p) for p in posts]
+    except PermissionError:
+        raise HTTPException(status_code=403, detail="Not authorized")
     except WordPressError as e:
         raise HTTPException(status_code=502, detail=f"WordPress error: {e}")
-    finally:
-        wp.close()
 
 
 @router.get("/{registry_id}", response_model=Registry)
@@ -94,16 +97,16 @@ async def get_registry(
     user: WPUser = Depends(get_current_user),
 ):
     """Get a single registry by ID. Must be owner or invitee."""
-    wp = _client_for_user(request)
     try:
-        cpt = wp.custom_post_type(CPT_SLUG)
-        post = cpt.get(registry_id)
+        with _client_for_user(request) as wp:
+            cpt = wp.custom_post_type(CPT_SLUG)
+            post = cpt.get(registry_id)
     except NotFoundError:
         raise HTTPException(status_code=404, detail="Registry not found")
+    except PermissionError:
+        raise HTTPException(status_code=403, detail="Not authorized")
     except WordPressError as e:
         raise HTTPException(status_code=502, detail=f"WordPress error: {e}")
-    finally:
-        wp.close()
 
     registry = _post_to_registry(post)
 
@@ -123,21 +126,21 @@ async def create_registry(
     user: WPUser = Depends(get_current_user),
 ):
     """Create a new registry. The authenticated user becomes the owner."""
-    wp = _client_for_user(request)
     try:
-        cpt = wp.custom_post_type(CPT_SLUG)
-        post_data = {
-            "title": data.title,
-            "status": "private" if data.is_private else "publish",
-            "author": user.id,
-            "meta": data.meta.to_wp_meta(),
-        }
-        post = cpt.create(post_data)
-        return _post_to_registry(post)
+        with _client_for_user(request) as wp:
+            cpt = wp.custom_post_type(CPT_SLUG)
+            post_data = {
+                "title": data.title,
+                "status": "private" if data.is_private else "publish",
+                "author": user.id,
+                "meta": data.meta.to_wp_meta(),
+            }
+            post = cpt.create(post_data)
+            return _post_to_registry(post)
+    except PermissionError:
+        raise HTTPException(status_code=403, detail="Not authorized")
     except WordPressError as e:
         raise HTTPException(status_code=502, detail=f"WordPress error: {e}")
-    finally:
-        wp.close()
 
 
 @router.patch("/{registry_id}", response_model=Registry)
@@ -148,36 +151,36 @@ async def update_registry(
     user: WPUser = Depends(get_current_user),
 ):
     """Update a registry. Must be owner or admin."""
-    wp = _client_for_user(request)
     try:
-        cpt = wp.custom_post_type(CPT_SLUG)
+        with _client_for_user(request) as wp:
+            cpt = wp.custom_post_type(CPT_SLUG)
 
-        # Verify ownership
-        existing = cpt.get(registry_id)
-        if existing.get("author") != user.id and not user.is_admin:
-            raise HTTPException(status_code=403, detail="Not authorized to update this registry")
+            # Verify ownership
+            existing = cpt.get(registry_id)
+            if existing.get("author") != user.id and not user.is_admin:
+                raise HTTPException(status_code=403, detail="Not authorized to update this registry")
 
-        update_payload: dict = {}
-        if data.title is not None:
-            update_payload["title"] = data.title
-        if data.is_private is not None:
-            update_payload["status"] = "private" if data.is_private else "publish"
-        if data.meta is not None:
-            update_payload["meta"] = data.meta.to_wp_meta()
+            update_payload: dict = {}
+            if data.title is not None:
+                update_payload["title"] = data.title
+            if data.is_private is not None:
+                update_payload["status"] = "private" if data.is_private else "publish"
+            if data.meta is not None:
+                update_payload["meta"] = data.meta.to_wp_meta()
 
-        if not update_payload:
-            return _post_to_registry(existing)
+            if not update_payload:
+                return _post_to_registry(existing)
 
-        post = cpt.update(registry_id, update_payload)
-        return _post_to_registry(post)
+            post = cpt.update(registry_id, update_payload)
+            return _post_to_registry(post)
     except NotFoundError:
         raise HTTPException(status_code=404, detail="Registry not found")
     except HTTPException:
         raise
+    except PermissionError:
+        raise HTTPException(status_code=403, detail="Not authorized")
     except WordPressError as e:
         raise HTTPException(status_code=502, detail=f"WordPress error: {e}")
-    finally:
-        wp.close()
 
 
 @router.delete("/{registry_id}", status_code=status.HTTP_204_NO_CONTENT)
@@ -187,23 +190,23 @@ async def delete_registry(
     user: WPUser = Depends(get_current_user),
 ):
     """Delete a registry. Must be owner or admin."""
-    wp = _client_for_user(request)
     try:
-        cpt = wp.custom_post_type(CPT_SLUG)
+        with _client_for_user(request) as wp:
+            cpt = wp.custom_post_type(CPT_SLUG)
 
-        existing = cpt.get(registry_id)
-        if existing.get("author") != user.id and not user.is_admin:
-            raise HTTPException(status_code=403, detail="Not authorized to delete this registry")
+            existing = cpt.get(registry_id)
+            if existing.get("author") != user.id and not user.is_admin:
+                raise HTTPException(status_code=403, detail="Not authorized to delete this registry")
 
-        cpt.delete(registry_id, force=True)
+            cpt.delete(registry_id, force=True)
     except NotFoundError:
         raise HTTPException(status_code=404, detail="Registry not found")
     except HTTPException:
         raise
+    except PermissionError:
+        raise HTTPException(status_code=403, detail="Not authorized")
     except WordPressError as e:
         raise HTTPException(status_code=502, detail=f"WordPress error: {e}")
-    finally:
-        wp.close()
 
 
 # ---------------------------------------------------------------------------
@@ -213,16 +216,16 @@ async def delete_registry(
 
 def _verify_registry_access(request: Request, registry_id: int, user: WPUser) -> dict:
     """Fetch a registry from WP and verify the user has access. Returns the WP post."""
-    wp = _client_for_user(request)
     try:
-        cpt = wp.custom_post_type(CPT_SLUG)
-        post = cpt.get(registry_id)
+        with _client_for_user(request) as wp:
+            cpt = wp.custom_post_type(CPT_SLUG)
+            post = cpt.get(registry_id)
     except NotFoundError:
         raise HTTPException(status_code=404, detail="Registry not found")
+    except PermissionError:
+        raise HTTPException(status_code=403, detail="Not authorized")
     except WordPressError as e:
         raise HTTPException(status_code=502, detail=f"WordPress error: {e}")
-    finally:
-        wp.close()
 
     meta = RegistryMeta.from_wp_meta(post.get("meta", {}))
     is_owner = post.get("author") == user.id
@@ -243,17 +246,15 @@ def _sync_item_ids_to_wp(request: Request, registry_id: int) -> None:
         )
         item_ids = [row["id"] for row in cursor.fetchall()]
 
-    wp = _client_for_user(request)
     try:
-        cpt = wp.custom_post_type(CPT_SLUG)
-        post = cpt.get(registry_id)
-        meta = RegistryMeta.from_wp_meta(post.get("meta", {}))
-        meta.item_ids = item_ids
-        cpt.update(registry_id, {"meta": meta.to_wp_meta()})
+        with _client_for_user(request) as wp:
+            cpt = wp.custom_post_type(CPT_SLUG)
+            post = cpt.get(registry_id)
+            meta = RegistryMeta.from_wp_meta(post.get("meta", {}))
+            meta.item_ids = item_ids
+            cpt.update(registry_id, {"meta": meta.to_wp_meta()})
     except WordPressError:
         pass  # Best-effort sync; item is already persisted in SQLite
-    finally:
-        wp.close()
 
 
 @router.get("/{registry_id}/items", response_model=list[Item])
@@ -398,14 +399,14 @@ async def add_invitees(
         existing.add(invitee)
     meta.invitees = sorted(existing)
 
-    wp = _client_for_user(request)
     try:
-        cpt = wp.custom_post_type(CPT_SLUG)
-        cpt.update(registry_id, {"meta": meta.to_wp_meta()})
+        with _client_for_user(request) as wp:
+            cpt = wp.custom_post_type(CPT_SLUG)
+            cpt.update(registry_id, {"meta": meta.to_wp_meta()})
+    except PermissionError:
+        raise HTTPException(status_code=403, detail="Not authorized")
     except WordPressError as e:
         raise HTTPException(status_code=502, detail=f"WordPress error: {e}")
-    finally:
-        wp.close()
 
     return InviteesResponse(invitees=meta.invitees)
 
@@ -429,14 +430,14 @@ async def remove_invitee(
 
     meta.invitees = [i for i in meta.invitees if i != invitee]
 
-    wp = _client_for_user(request)
     try:
-        cpt = wp.custom_post_type(CPT_SLUG)
-        cpt.update(registry_id, {"meta": meta.to_wp_meta()})
+        with _client_for_user(request) as wp:
+            cpt = wp.custom_post_type(CPT_SLUG)
+            cpt.update(registry_id, {"meta": meta.to_wp_meta()})
+    except PermissionError:
+        raise HTTPException(status_code=403, detail="Not authorized")
     except WordPressError as e:
         raise HTTPException(status_code=502, detail=f"WordPress error: {e}")
-    finally:
-        wp.close()
 
     return InviteesResponse(invitees=meta.invitees)
 

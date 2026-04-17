@@ -81,6 +81,7 @@ def mock_wp():
     """Patch get_wp_client to return a mock WordPressClient."""
     with patch("app.routes.registry.get_wp_client") as m:
         mock_client = MagicMock()
+        mock_client.__enter__.return_value = mock_client
         m.return_value = mock_client
         yield mock_client
 

@@ -7,13 +7,13 @@ application-password credentials in the environment.
 Run with:
     WP_LOCAL_URL=http://localhost:8082 \
     WP_LOCAL_USER=andrew \
-    WP_LOCAL_APP_PWD="7MYw xRf1 RoDF vAW0 ZKk3 Rh5u" \
+    WP_LOCAL_APP_PWD="JPCY 0CeI LieK QSDW fhQy U2Yd" \
     pytest tests/test_registry_wp_integration.py -v
 """
 
 import os
 import pytest
-from wp_python.src.wordpress_api import WordPressClient, ApplicationPasswordAuth
+from wp_python import WordPressClient, ApplicationPasswordAuth
 
 from app.models.registry import RegistryMeta
 
@@ -23,7 +23,7 @@ from app.models.registry import RegistryMeta
 
 WP_URL = os.environ.get("WP_LOCAL_URL", "http://localhost:8082")
 WP_USER = os.environ.get("WP_LOCAL_USER", "andrew")
-WP_APP_PWD = os.environ.get("WP_LOCAL_APP_PWD", "7MYw xRf1 RoDFvAW0ZKk3Rh5u")
+WP_APP_PWD = os.environ.get("WP_LOCAL_APP_PWD", "JPCY0CeILieKQSDWfhQyU2Yd")
 REST_PATH = "/wp/v2/restart-registry"
 
 
