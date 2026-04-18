@@ -9,14 +9,14 @@ from pydantic import BaseModel, Field
 from app.auth import WPUser, get_current_user, get_wp_client
 from app.auth.wp_client import _parse_basic_auth
 from app.database import get_db
-from app.models.item import Item, ItemCreate, ItemResponse
+from app.models.item import Item, ItemPublic, ItemRegistryCreate, ItemResponse
 from app.models.registry import (
     Registry,
     RegistryCreate,
     RegistryMeta,
     RegistryUpdate,
 )
-from app.routes.items import row_to_item
+from app.routes.items import _item_response, row_to_item
 from wp_python.exceptions import NotFoundError, PermissionError, WordPressError
 
 router = APIRouter(prefix="/registries", tags=["registries"])
@@ -257,22 +257,26 @@ def _sync_item_ids_to_wp(request: Request, registry_id: int) -> None:
         pass  # Best-effort sync; item is already persisted in SQLite
 
 
-@router.get("/{registry_id}/items", response_model=list[Item])
+@router.get("/{registry_id}/items", response_model=None)
 async def list_registry_items(
     registry_id: int,
     request: Request,
     user: WPUser = Depends(get_current_user),
 ):
-    """List all items belonging to a registry."""
+    """List all active items belonging to a registry."""
     _verify_registry_access(request, registry_id, user)
 
     with get_db() as conn:
         cursor = conn.cursor()
         cursor.execute(
-            "SELECT * FROM items WHERE registry_id = ? ORDER BY id",
+            "SELECT * FROM items WHERE registry_id = ? AND is_active = 1 ORDER BY id",
             (registry_id,),
         )
-        return [row_to_item(row) for row in cursor.fetchall()]
+        items = [row_to_item(row) for row in cursor.fetchall()]
+
+    if user.is_admin:
+        return items
+    return [ItemPublic.model_validate(i) for i in items]
 
 
 @router.post(
@@ -282,7 +286,7 @@ async def list_registry_items(
 )
 async def add_item_to_registry(
     registry_id: int,
-    item: ItemCreate,
+    item: ItemRegistryCreate,
     request: Request,
     user: WPUser = Depends(get_current_user),
 ):
@@ -320,11 +324,7 @@ async def add_item_to_registry(
 
     _sync_item_ids_to_wp(request, registry_id)
 
-    return ItemResponse(
-        success=True,
-        data=row_to_item(row),
-        message="Item added to registry",
-    )
+    return _item_response(row_to_item(row), user, "Item added to registry")
 
 
 @router.delete("/{registry_id}/items/{item_id}", status_code=status.HTTP_204_NO_CONTENT)
@@ -343,12 +343,12 @@ async def remove_item_from_registry(
     with get_db() as conn:
         cursor = conn.cursor()
         cursor.execute(
-            "SELECT id FROM items WHERE id = ? AND registry_id = ?",
+            "SELECT id FROM items WHERE id = ? AND registry_id = ? AND is_active = 1",
             (item_id, registry_id),
         )
         if not cursor.fetchone():
             raise HTTPException(status_code=404, detail="Item not found in this registry")
-        cursor.execute("DELETE FROM items WHERE id = ?", (item_id,))
+        cursor.execute("UPDATE items SET is_active = 0 WHERE id = ?", (item_id,))
 
     _sync_item_ids_to_wp(request, registry_id)
 

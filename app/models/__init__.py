@@ -1,3 +1,21 @@
-from app.models.item import Item, ItemCreate, ItemUpdate, ItemResponse
+from app.models.item import (
+    AffiliateStatus,
+    Item,
+    ItemCreate,
+    ItemPublic,
+    ItemPublicResponse,
+    ItemRegistryCreate,
+    ItemResponse,
+    ItemUpdate,
+)
 
-__all__ = ["Item", "ItemCreate", "ItemUpdate", "ItemResponse"]
+__all__ = [
+    "AffiliateStatus",
+    "Item",
+    "ItemCreate",
+    "ItemPublic",
+    "ItemPublicResponse",
+    "ItemRegistryCreate",
+    "ItemResponse",
+    "ItemUpdate",
+]

@@ -5,14 +5,29 @@ import pytest
 
 os.environ["DATABASE_PATH"] = ":memory:"
 
+from app.auth import get_current_user
+from app.auth.models import WPUser
 from app.database import close_db, init_db
-from app.main import handler
+from app.main import app, handler
+
+
+def _wp_user() -> WPUser:
+    return WPUser(
+        id=1,
+        username="testuser",
+        email="testuser@example.com",
+        display_name="Test User",
+        roles=["subscriber"],
+        capabilities={"read": True},
+    )
 
 
 @pytest.fixture(autouse=True)
 def setup_db():
+    app.dependency_overrides[get_current_user] = lambda: _wp_user()
     init_db()
     yield
+    app.dependency_overrides.clear()
     close_db()
 
 
@@ -66,7 +81,8 @@ class TestLambdaHandler:
 
     def test_create_item_via_lambda(self):
         event = create_lambda_event(
-            "POST", "/items", {"name": "Lambda Item", "url": "https://example.com/product/lambda-item", "price": 50.00}
+            "POST", "/items",
+            {"registry_id": 1, "name": "Lambda Item", "url": "https://example.com/product/lambda-item", "price": 50.00},
         )
         response = handler(event, None)
 
@@ -77,7 +93,8 @@ class TestLambdaHandler:
 
     def test_get_items_via_lambda(self):
         create_event = create_lambda_event(
-            "POST", "/items", {"name": "Test", "url": "https://example.com/product/test", "price": 10.00}
+            "POST", "/items",
+            {"registry_id": 1, "name": "Test", "url": "https://example.com/product/test", "price": 10.00},
         )
         handler(create_event, None)
 

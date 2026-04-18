@@ -45,7 +45,7 @@ def init_db() -> None:
             retailer TEXT,
             affiliate_url TEXT,
             affiliate_status TEXT,
-            price REAL NOT NULL,
+            price REAL,
             quantity_needed INTEGER NOT NULL DEFAULT 1,
             quantity_purchased INTEGER NOT NULL DEFAULT 0,
             is_active INTEGER DEFAULT 1,
