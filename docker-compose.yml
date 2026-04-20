@@ -9,6 +9,7 @@ services:
              uv run uvicorn app.main:app --host 0.0.0.0 --port 5000 --reload"
     environment:
       DATABASE_PATH: /data/registry.db
+      WP_BASE_URL: http://local_wordpress-nginx
     volumes:
       - .:/app
       - lambda_data:/data

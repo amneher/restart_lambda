@@ -1,10 +1,15 @@
+import logging
 from contextlib import asynccontextmanager
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
+from fastapi.exceptions import RequestValidationError
+from fastapi.responses import JSONResponse
 from mangum import Mangum
 
 from app.database import close_db, init_db
 from app.routes import health_router, items_router, registry_router
+
+logger = logging.getLogger(__name__)
 
 
 @asynccontextmanager
@@ -20,6 +25,14 @@ app = FastAPI(
     version="0.1.0",
     lifespan=lifespan,
 )
+
+@app.exception_handler(RequestValidationError)
+async def validation_exception_handler(request: Request, exc: RequestValidationError):
+    body = await request.body()
+    logger.warning("422 Validation error on %s %s | body: %s | errors: %s",
+                   request.method, request.url.path, body.decode()[:500], exc.errors())
+    return JSONResponse(status_code=422, content={"detail": exc.errors()})
+
 
 app.include_router(health_router)
 app.include_router(items_router)

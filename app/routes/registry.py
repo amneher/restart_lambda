@@ -301,8 +301,8 @@ async def add_item_to_registry(
         cursor = conn.cursor()
         cursor.execute(
             """
-            INSERT INTO items (registry_id, name, description, url, retailer, affiliate_url, affiliate_status, price, quantity_needed, quantity_purchased, is_active)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            INSERT INTO items (registry_id, name, description, url, retailer, affiliate_url, affiliate_status, image_url, price, quantity_needed, quantity_purchased, is_active)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """,
             (
                 registry_id,
@@ -312,6 +312,7 @@ async def add_item_to_registry(
                 item.retailer,
                 item.affiliate_url,
                 item.affiliate_status,
+                item.image_url,
                 item.price,
                 item.quantity_needed,
                 item.quantity_purchased,
