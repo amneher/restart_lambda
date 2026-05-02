@@ -36,6 +36,8 @@ htmlcov/
 uv.lock
 *.ipynb
 .ipynb_checkpoints/
-
+.claude/
+.vscode/
 lambda_service_app_pwd.txt
 build/
+iam/
