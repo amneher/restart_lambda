@@ -12,6 +12,7 @@ jobs:
   deploy:
     name: Deploy → Restart-Lambda-Staging
     runs-on: ubuntu-latest
+    environment: staging
     steps:
       - uses: actions/checkout@v4
 
