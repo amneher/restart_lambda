@@ -15,6 +15,12 @@ def get_connection() -> sqlite3.Connection:
     if _connection is None:
         _connection = sqlite3.connect(DATABASE_PATH, check_same_thread=False)
         _connection.row_factory = sqlite3.Row
+        # On EFS, multiple Lambda instances share the file via POSIX locking.
+        # busy_timeout lets writers queue up rather than fail immediately.
+        # WAL mode is intentionally avoided — it requires shared memory (mmap)
+        # which doesn't work across instances on NFS.
+        _connection.execute("PRAGMA busy_timeout = 5000")
+        _connection.execute("PRAGMA journal_mode = DELETE")
     return _connection
 
 
@@ -45,6 +51,7 @@ def init_db() -> None:
             retailer TEXT,
             affiliate_url TEXT,
             affiliate_status TEXT,
+            image_url TEXT,
             price REAL,
             quantity_needed INTEGER NOT NULL DEFAULT 1,
             quantity_purchased INTEGER NOT NULL DEFAULT 0,

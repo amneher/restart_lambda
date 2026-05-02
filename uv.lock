@@ -882,7 +882,7 @@ requires-dist = [
     { name = "pytest", specifier = ">=9.0.2" },
     { name = "pytest-mock", specifier = ">=3.15.1" },
     { name = "uvicorn", specifier = ">=0.27.0" },
-    { name = "wp-python", directory = "/home/andrew/projects/wp_python" },
+    { name = "wp-python", specifier = ">=0.1.6" },
 ]
 
 [package.metadata.requires-dev]
@@ -1160,7 +1160,7 @@ wheels = [
 [[package]]
 name = "wp-python"
 version = "0.1.6"
-source = { directory = "/home/andrew/projects/wp_python" }
+source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "hatch" },
     { name = "httpx" },
@@ -1169,19 +1169,7 @@ dependencies = [
     { name = "pytest-mock" },
     { name = "respx" },
 ]
-
-[package.metadata]
-requires-dist = [
-    { name = "hatch", specifier = ">=1.16.3" },
-    { name = "httpx", specifier = ">=0.28.1" },
-    { name = "pydantic", specifier = ">=2.12.5" },
-    { name = "pytest", specifier = ">=9.0.2" },
-    { name = "pytest-mock", specifier = ">=3.15.1" },
-    { name = "respx", specifier = ">=0.22.0" },
-]
-
-[package.metadata.requires-dev]
-dev = [
-    { name = "sphinx", specifier = ">=9.1.0" },
-    { name = "twine", specifier = ">=6.2.0" },
+sdist = { url = "https://files.pythonhosted.org/packages/47/9f/bcbecaf6d5a23a0be4774643e4691cdf70c7e79773b176c3c3ef8f0b2c7d/wp_python-0.1.6.tar.gz", hash = "sha256:d1dfdd052020b7034a205a9f3d39905f11f1636e5df04ec3f3b31e552168526c", size = 27145, upload-time = "2026-04-17T04:27:26.96Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/80/3b/69a6cbcab0432b467303072a7777f5db50a3b4be7f81e0147dea810a1f08/wp_python-0.1.6-py3-none-any.whl", hash = "sha256:bd6f10402a8bc377f5e7df8348105309029c42fe4ebfcd049f7fef5fe4d0afc0", size = 47652, upload-time = "2026-04-17T04:27:25.646Z" },
 ]

@@ -7,8 +7,8 @@ Tests the complete workflow across both systems:
 
 Run with:
     WP_LOCAL_URL=http://localhost:8082 \
-    WP_LOCAL_USER=andrew \
-    WP_LOCAL_APP_PWD="JPCY 0CeI LieK QSDW fhQy U2Yd" \
+    WP_LOCAL_USER=<your local wp user> \
+    WP_LOCAL_APP_PWD="<your app password from your local wp install.>" \
     pytest tests/test_registry_e2e.py -v
 
 Tests are numbered and stateful — they run in definition order and build on
@@ -17,9 +17,10 @@ cleaned up on teardown even if individual tests fail.
 """
 
 import os
+
 import pytest
 from fastapi.testclient import TestClient
-from wp_python import WordPressClient, ApplicationPasswordAuth
+from wp_python import ApplicationPasswordAuth, WordPressClient
 
 from app.models.registry import RegistryMeta
 
@@ -29,7 +30,7 @@ from app.models.registry import RegistryMeta
 
 WP_URL = os.environ.get("WP_LOCAL_URL", "http://localhost:8082")
 WP_USER = os.environ.get("WP_LOCAL_USER", "andrew")
-WP_APP_PWD = os.environ.get("WP_LOCAL_APP_PWD", "JPCY 0CeI LieK QSDW fhQy U2Yd")
+WP_APP_PWD = os.environ.get("WP_LOCAL_APP_PWD", "ddjo 65OK daxH MDe1 Nn8L asVu")
 
 NUM_USERS = 12
 ITEMS_PER_REGISTRY = 3
@@ -42,9 +43,11 @@ _state: dict = {}
 # Skip guard
 # ---------------------------------------------------------------------------
 
+
 def _wp_available() -> bool:
     try:
         import httpx
+
         r = httpx.get(f"{WP_URL}/?rest_route=/wp/v2/types/restart-registry", timeout=3)
         return r.status_code == 200
     except Exception:
@@ -61,6 +64,7 @@ wp_required = pytest.mark.skipif(
 # Module-scoped fixtures
 # ---------------------------------------------------------------------------
 
+
 @pytest.fixture(scope="module")
 def wp():
     auth = ApplicationPasswordAuth(WP_USER, WP_APP_PWD)
@@ -71,11 +75,16 @@ def wp():
 
 @pytest.fixture(scope="module")
 def lambda_client():
-    from app.database import init_db, close_db
+    from app.auth.wp_client import clear_cache
+    from app.database import close_db, init_db
     from app.main import app
+
+    auth = ApplicationPasswordAuth(WP_USER, WP_APP_PWD)
+    clear_cache()
     init_db()
-    with TestClient(app) as client:
+    with TestClient(app, headers=auth.get_headers()) as client:
         yield client
+    clear_cache()
     close_db()
 
 
@@ -83,9 +92,9 @@ def lambda_client():
 def e2e_state(wp):
     """Shared mutable bag for all tests. Deletes all WP resources on teardown."""
     state: dict = {
-        "users": [],        # list of WP user dicts {id, username}
-        "registry_ids": [], # WP post IDs, for cleanup
-        "registries": [],   # list of full registry dicts built up across tests
+        "users": [],  # list of WP user dicts {id, username}
+        "registry_ids": [],  # WP post IDs, for cleanup
+        "registries": [],  # list of full registry dicts built up across tests
     }
     yield state
 
@@ -111,8 +120,10 @@ def e2e_state(wp):
 # Helpers
 # ---------------------------------------------------------------------------
 
-def _make_item_payload(i: int, quantity_needed: int = 1) -> dict:
+
+def _make_item_payload(i: int, registry_id: int, quantity_needed: int = 1) -> dict:
     return {
+        "registry_id": registry_id,
         "name": f"E2E Item {i}",
         "url": f"https://example.com/product/e2e-item-{i}",
         "price": round(10.0 + i * 5, 2),
@@ -128,9 +139,9 @@ def _meta_from_wp(post: dict) -> RegistryMeta:
 # E2E test class  (methods run in definition order)
 # ---------------------------------------------------------------------------
 
+
 @wp_required
 class TestRegistryE2E:
-
     # ------------------------------------------------------------------
     # 01 — Create 12 WordPress test users
     # ------------------------------------------------------------------
@@ -138,7 +149,9 @@ class TestRegistryE2E:
     def test_01_create_wp_users(self, wp, e2e_state):
         # Clean up any leftover users from a previous failed run
         admin_id = wp._request("GET", "/wp/v2/users/me")["id"]
-        existing = wp._request("GET", "/wp/v2/users", params={"search": "rr_e2e_", "per_page": 100})
+        existing = wp._request(
+            "GET", "/wp/v2/users", params={"search": "rr_e2e_", "per_page": 100}
+        )
         for u in existing if isinstance(existing, list) else []:
             if u.get("slug", "").startswith("rr_e2e_"):
                 try:
@@ -147,12 +160,14 @@ class TestRegistryE2E:
                     pass
 
         for i in range(1, NUM_USERS + 1):
-            user = wp.users.create({
-                "username": f"rr_e2e_{i:02d}",
-                "email": f"rr_e2e_{i:02d}@e2e.local",
-                "password": "E2ePassword123!",
-                "roles": ["subscriber"],
-            })
+            user = wp.users.create(
+                {
+                    "username": f"rr_e2e_{i:02d}",
+                    "email": f"rr_e2e_{i:02d}@e2e.local",
+                    "password": "E2ePassword123!",
+                    "roles": ["registry_user"],
+                }
+            )
             e2e_state["users"].append({"id": user.id, "username": user.slug})
 
         assert len(e2e_state["users"]) == NUM_USERS
@@ -166,18 +181,22 @@ class TestRegistryE2E:
 
         for u in e2e_state["users"]:
             meta = RegistryMeta(event_type="e2e-test")
-            post = cpt.create({
-                "title": f"Registry of {u['username']}",
-                "status": "publish",
-                "author": u["id"],
-                "meta": meta.to_wp_meta(),
-            })
+            post = cpt.create(
+                {
+                    "title": f"Registry of {u['username']}",
+                    "status": "publish",
+                    "author": u["id"],
+                    "meta": meta.to_wp_meta(),
+                }
+            )
             e2e_state["registry_ids"].append(post["id"])
-            e2e_state["registries"].append({
-                "post_id": post["id"],
-                "user": u,
-                "item_ids": [],
-            })
+            e2e_state["registries"].append(
+                {
+                    "post_id": post["id"],
+                    "user": u,
+                    "item_ids": [],
+                }
+            )
 
         assert len(e2e_state["registries"]) == NUM_USERS
 
@@ -200,7 +219,7 @@ class TestRegistryE2E:
             created_ids = []
             for j in range(ITEMS_PER_REGISTRY):
                 item_counter += 1
-                payload = _make_item_payload(item_counter, quantity_needed=2)
+                payload = _make_item_payload(item_counter, registry_id=reg["post_id"], quantity_needed=2)
                 resp = lambda_client.post("/items", json=payload)
                 assert resp.status_code == 201, resp.text
                 item_id = resp.json()["data"]["id"]
@@ -347,8 +366,12 @@ class TestRegistryE2E:
             fetched = cpt.get(reg["post_id"])
             assert fetched["status"] == reg["status"]
 
-        private_count = sum(1 for r in e2e_state["registries"] if r["status"] == "private")
-        public_count = sum(1 for r in e2e_state["registries"] if r["status"] == "publish")
+        private_count = sum(
+            1 for r in e2e_state["registries"] if r["status"] == "private"
+        )
+        public_count = sum(
+            1 for r in e2e_state["registries"] if r["status"] == "publish"
+        )
         assert private_count == NUM_USERS // 2
         assert public_count == NUM_USERS // 2
 
@@ -375,6 +398,10 @@ class TestRegistryE2E:
                 item = resp.json()["data"]
                 assert item["quantity_needed"] == 2
                 assert item["quantity_purchased"] >= 0
+                assert item["registry_id"] == reg["post_id"], (
+                    f"Item {item_id} has registry_id={item['registry_id']}, "
+                    f"expected {reg['post_id']}"
+                )
 
             # WP author matches the registry's owner
             fetched = cpt.get(reg["post_id"])
@@ -394,12 +421,14 @@ class TestRegistryE2E:
         admin_id = wp._request("GET", "/wp/v2/users/me")["id"]
 
         # 1. Create a dedicated user
-        user = wp.users.create({
-            "username": "rr_lifecycle_user",
-            "email": "rr_lifecycle@e2e.local",
-            "password": "Lifecycle123!",
-            "roles": ["subscriber"],
-        })
+        user = wp.users.create(
+            {
+                "username": "rr_lifecycle_user",
+                "email": "rr_lifecycle@e2e.local",
+                "password": "Lifecycle123!",
+                "roles": ["registry_user"],
+            }
+        )
         e2e_state["users"].append({"id": user.id, "username": user.slug})
 
         # 2. Create registry in WP
@@ -407,23 +436,29 @@ class TestRegistryE2E:
             event_type="wedding",
             event_date="2026-09-20",
         )
-        post = cpt.create({
-            "title": "Lifecycle Wedding Registry",
-            "status": "publish",
-            "author": user.id,
-            "meta": meta.to_wp_meta(),
-        })
+        post = cpt.create(
+            {
+                "title": "Lifecycle Wedding Registry",
+                "status": "publish",
+                "author": user.id,
+                "meta": meta.to_wp_meta(),
+            }
+        )
         e2e_state["registry_ids"].append(post["id"])
 
         # 3. Create 5 items in Lambda
         item_ids = []
         for i in range(1, 6):
-            resp = lambda_client.post("/items", json={
-                "name": f"Wedding Gift {i}",
-                "url": f"https://example.com/gift/{i}",
-                "price": float(i * 25),
-                "quantity_needed": i,
-            })
+            resp = lambda_client.post(
+                "/items",
+                json={
+                    "registry_id": post["id"],
+                    "name": f"Wedding Gift {i}",
+                    "url": f"https://example.com/gift/{i}",
+                    "price": float(i * 25),
+                    "quantity_needed": i,
+                },
+            )
             assert resp.status_code == 201
             item_ids.append(resp.json()["data"]["id"])
 
@@ -431,7 +466,7 @@ class TestRegistryE2E:
         meta.item_ids = item_ids
         meta.invitees = [
             e2e_state["users"][0]["username"],  # internal
-            "maid_of_honor@wedding.com",         # external
+            "maid_of_honor@wedding.com",  # external
         ]
         cpt.update(post["id"], {"meta": meta.to_wp_meta()})
 
@@ -454,12 +489,10 @@ class TestRegistryE2E:
         assert len(final_meta.invitees) == 2
 
         purchased_items = [
-            lambda_client.get(f"/items/{iid}").json()["data"]
-            for iid in item_ids[:3]
+            lambda_client.get(f"/items/{iid}").json()["data"] for iid in item_ids[:3]
         ]
         unpurchased_items = [
-            lambda_client.get(f"/items/{iid}").json()["data"]
-            for iid in item_ids[3:]
+            lambda_client.get(f"/items/{iid}").json()["data"] for iid in item_ids[3:]
         ]
         assert all(i["quantity_purchased"] == 1 for i in purchased_items)
         assert all(i["quantity_purchased"] == 0 for i in unpurchased_items)
@@ -468,13 +501,13 @@ class TestRegistryE2E:
         cpt.update(post["id"], {"status": "private"})
         assert cpt.get(post["id"])["status"] == "private"
 
-        # 8. Delete registry from WP and items from Lambda
-        cpt.delete(post["id"], force=True)
-        e2e_state["registry_ids"].remove(post["id"])
-
+        # 8. Delete items from Lambda, then registry from WP
         for item_id in item_ids:
             resp = lambda_client.delete(f"/items/{item_id}")
             assert resp.status_code == 200
+
+        cpt.delete(post["id"], force=True)
+        e2e_state["registry_ids"].remove(post["id"])
 
         # Verify items are gone from Lambda
         for item_id in item_ids:

@@ -6,10 +6,10 @@ from fastapi.testclient import TestClient
 
 os.environ["DATABASE_PATH"] = ":memory:"
 
-from app.main import app
 from app.auth import get_current_user
 from app.auth.models import WPUser
-from app.database import init_db, close_db, get_connection
+from app.database import close_db, get_connection, init_db
+from app.main import app
 
 
 def _make_wp_user(admin: bool = False) -> WPUser:
@@ -18,7 +18,7 @@ def _make_wp_user(admin: bool = False) -> WPUser:
         username="testuser",
         email="testuser@example.com",
         display_name="Test User",
-        roles=["administrator"] if admin else ["subscriber"],
+        roles=["administrator"] if admin else ["registry_user"],
         capabilities={"administrator": True} if admin else {"read": True},
     )
 
@@ -88,7 +88,28 @@ def sample_item():
 @pytest.fixture
 def sample_items():
     return [
-        {"registry_id": 1, "name": "Item 1", "description": "First item", "url": "https://example.com/product/1", "price": 10.00, "is_active": True},
-        {"registry_id": 1, "name": "Item 2", "description": "Second item", "url": "https://example.com/product/2", "price": 20.00, "is_active": True},
-        {"registry_id": 1, "name": "Item 3", "description": "Third item", "url": "https://example.com/product/3", "price": 30.00, "is_active": True},
+        {
+            "registry_id": 1,
+            "name": "Item 1",
+            "description": "First item",
+            "url": "https://example.com/product/1",
+            "price": 10.00,
+            "is_active": True,
+        },
+        {
+            "registry_id": 1,
+            "name": "Item 2",
+            "description": "Second item",
+            "url": "https://example.com/product/2",
+            "price": 20.00,
+            "is_active": True,
+        },
+        {
+            "registry_id": 1,
+            "name": "Item 3",
+            "description": "Third item",
+            "url": "https://example.com/product/3",
+            "price": 30.00,
+            "is_active": True,
+        },
     ]

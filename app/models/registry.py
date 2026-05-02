@@ -170,6 +170,9 @@ class RegistryBase(BaseModel):
     # When True the WP post status is set to "private"; otherwise "publish"
     is_private: bool = Field(default=False)
 
+    # User's personal narrative → stored as the WP post content
+    story: Optional[str] = Field(default=None, max_length=2000)
+
     # Structured metadata stored in WP post meta
     meta: RegistryMeta = Field(default_factory=lambda: RegistryMeta())
 
@@ -181,6 +184,7 @@ class RegistryCreate(RegistryBase):
 class RegistryUpdate(BaseModel):
     title: Optional[str] = Field(None, min_length=1, max_length=200)
     is_private: Optional[bool] = None
+    story: Optional[str] = Field(None, max_length=2000)
     meta: Optional[RegistryMeta] = None
 
 

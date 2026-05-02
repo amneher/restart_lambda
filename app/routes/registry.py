@@ -52,11 +52,16 @@ def _post_to_registry(post: dict) -> Registry:
         except (ValueError, TypeError):
             pass
 
+    raw_content = post.get("content", {})
+    story = raw_content.get("raw") or raw_content.get("rendered") if isinstance(raw_content, dict) else raw_content
+    story = story.strip() if story else None
+
     return Registry(
         id=post["id"],
         title=post.get("title", {}).get("rendered", "") if isinstance(post.get("title"), dict) else post.get("title", ""),
         username=str(post.get("author_name", post.get("author", ""))),
         is_private=status_val == "private",
+        story=story or None,
         meta=meta,
         created_at=created_at,
         updated_at=updated_at,
@@ -134,6 +139,7 @@ async def create_registry(
                 "status": "private" if data.is_private else "publish",
                 "author": user.id,
                 "meta": data.meta.to_wp_meta(),
+                **({"content": data.story} if data.story else {}),
             }
             post = cpt.create(post_data)
             return _post_to_registry(post)
@@ -165,6 +171,8 @@ async def update_registry(
                 update_payload["title"] = data.title
             if data.is_private is not None:
                 update_payload["status"] = "private" if data.is_private else "publish"
+            if data.story is not None:
+                update_payload["content"] = data.story
             if data.meta is not None:
                 update_payload["meta"] = data.meta.to_wp_meta()
 
@@ -301,8 +309,8 @@ async def add_item_to_registry(
         cursor = conn.cursor()
         cursor.execute(
             """
-            INSERT INTO items (registry_id, name, description, url, retailer, affiliate_url, affiliate_status, price, quantity_needed, quantity_purchased, is_active)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            INSERT INTO items (registry_id, name, description, url, retailer, affiliate_url, affiliate_status, image_url, price, quantity_needed, quantity_purchased, is_active)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """,
             (
                 registry_id,
@@ -312,6 +320,7 @@ async def add_item_to_registry(
                 item.retailer,
                 item.affiliate_url,
                 item.affiliate_status,
+                item.image_url,
                 item.price,
                 item.quantity_needed,
                 item.quantity_purchased,

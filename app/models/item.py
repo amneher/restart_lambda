@@ -15,10 +15,11 @@ class AffiliateStatus(str, Enum):
 class ItemBase(BaseModel):
     name: str = Field(..., min_length=1, max_length=100)
     description: Optional[str] = Field(None, max_length=500)
-    url: str = Field(..., min_length=10, max_length=250)
+    url: str = Field(..., min_length=10, max_length=2000)
     retailer: Optional[str] = Field(None, max_length=100)
-    affiliate_url: Optional[str] = Field(None, max_length=500)
+    affiliate_url: Optional[str] = Field(None, max_length=2000)
     affiliate_status: Optional[AffiliateStatus] = None
+    image_url: Optional[str] = Field(None, max_length=2000)
     price: Optional[float] = Field(None, gt=0)
     quantity_needed: int = Field(default=1, ge=1)
     quantity_purchased: int = Field(default=0, ge=0)
@@ -37,10 +38,11 @@ class ItemRegistryCreate(ItemBase):
 class ItemUpdate(BaseModel):
     name: Optional[str] = Field(None, min_length=1, max_length=100)
     description: Optional[str] = Field(None, max_length=500)
-    url: Optional[str] = Field(None, min_length=10, max_length=250)
+    url: Optional[str] = Field(None, min_length=10, max_length=2000)
     retailer: Optional[str] = Field(None, max_length=100)
-    affiliate_url: Optional[str] = Field(None, max_length=500)
+    affiliate_url: Optional[str] = Field(None, max_length=2000)
     affiliate_status: Optional[AffiliateStatus] = None
+    image_url: Optional[str] = Field(None, max_length=2000)
     price: Optional[float] = Field(None, gt=0)
     quantity_needed: Optional[int] = Field(None, ge=1)
     quantity_purchased: Optional[int] = Field(None, ge=0)
@@ -66,6 +68,7 @@ class ItemPublic(BaseModel):
     description: Optional[str] = None
     url: str
     retailer: Optional[str] = None
+    image_url: Optional[str] = None
     price: Optional[float] = None
     quantity_needed: int
     quantity_purchased: int

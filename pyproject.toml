@@ -11,11 +11,8 @@ dependencies = [
     "pydantic>=2.12.5",
     "pytest>=9.0.2",
     "pytest-mock>=3.15.1",
-    "wp-python==0.1.6",
+    "wp-python>=0.1.6",
 ]
-
-[tool.uv.sources]
-wp-python = { path = "/home/andrew/projects/wp_python" }
 
 [build-system]
 requires = ["hatchling"]

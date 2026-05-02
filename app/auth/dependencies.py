@@ -1,5 +1,6 @@
 """FastAPI dependencies for WordPress authentication."""
 
+import asyncio
 from typing import Callable
 
 from fastapi import Depends, HTTPException, Request, status
@@ -22,7 +23,11 @@ async def get_current_user(request: Request) -> WPUser:
             headers={"WWW-Authenticate": "Basic"},
         )
 
-    user = validate_credentials(authorization)
+    # validate_credentials is synchronous (blocking HTTP call to WP).
+    # Run it in a thread pool so it doesn't stall the event loop while
+    # waiting on the network, which would block all other requests.
+    loop = asyncio.get_event_loop()
+    user = await loop.run_in_executor(None, validate_credentials, authorization)
     if user is None:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
