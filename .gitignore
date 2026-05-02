@@ -38,3 +38,4 @@ uv.lock
 .ipynb_checkpoints/
 
 lambda_service_app_pwd.txt
+build/

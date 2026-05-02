@@ -1,0 +1,16 @@
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Effect": "Allow",
+      "Action": [
+        "lambda:UpdateFunctionCode",
+        "lambda:GetFunctionConfiguration"
+      ],
+      "Resource": [
+        "arn:aws:lambda:us-east-1:499739914598:function:Restart_Registry_Lambda",
+        "arn:aws:lambda:us-east-1:499739914598:function:Restart-Lambda-Staging"
+      ]
+    }
+  ]
+}

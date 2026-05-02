@@ -21,6 +21,51 @@ pytest tests/test_items.py::test_create_item -v
 uv sync
 ```
 
+## Deployment (Makefile)
+
+All deploy operations use `make`. Credentials are read from `.env` automatically.
+
+```bash
+# Build Lambda zip from current HEAD
+make build
+
+# Build from a specific branch
+make build BRANCH=main
+
+# Build and verify the handler can be imported from the zip
+make build-test [BRANCH=main]
+
+# Run unit tests (in-memory, no network)
+make test
+
+# Run WP integration + e2e tests against local Docker stack (requires local_wordpress running)
+# First time: run 'make wp-snapshot' to capture the baseline DB state
+make test-local
+
+# Run WP integration + e2e tests against staging
+make test-staging
+
+# Run WP integration + e2e tests against production
+make test-prod
+
+# Deploy to staging Lambda
+make deploy-staging [BRANCH=feature-x]
+
+# Deploy to production Lambda (interactive confirmation)
+make deploy-prod [BRANCH=main]
+
+# Tag the current commit and save a named build artifact
+make tag TAG=v1.2.3 [BRANCH=main]
+
+# Remove build artifacts
+make clean
+```
+
+**Key Makefile variables** (override on CLI or via env):
+- `BRANCH` — git ref to build (branch name, tag, or SHA; default: `HEAD`)
+- `FUNCTION_PROD` / `FUNCTION_STAGING` — Lambda function names
+- `FORCE=yes` — skip the deploy-prod confirmation (for CI)
+
 ## Architecture
 
 This is an AWS Lambda API for **the-restart.co Registry app** — a gift registry platform that integrates with a WordPress backend via the `wp-python` library.
