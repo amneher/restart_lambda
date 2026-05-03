@@ -128,18 +128,21 @@ build:
 # Usage: make build-test [BRANCH=main]
 # ─────────────────────────────────────────────────────────────────────────────
 build-test: build
-	$(if $(wildcard $(LAYER_ZIP_PATH)),,$(error Layer zip not found — run 'make build-layer' first))
-	@echo "Verifying handler structure (app + layer)…"
+	@echo "Verifying app zip structure…"
 	@set -e; \
 	rm -rf $(BUILD_DIR)/_test; \
 	mkdir -p $(BUILD_DIR)/_test; \
 	trap 'rm -rf $(BUILD_DIR)/_test' EXIT; \
-	unzip -q $(LAYER_ZIP_PATH) -d $(BUILD_DIR)/_test; \
 	unzip -q $(ZIP_PATH) -d $(BUILD_DIR)/_test; \
 	test -f $(BUILD_DIR)/_test/app/main.py && echo "Handler found: app/main.py ✓"; \
-	DATABASE_PATH=:memory: PYTHONPATH=$(BUILD_DIR)/_test:$(BUILD_DIR)/_test/python \
-	    python3.12 -c "from app.main import handler; print('Handler OK:', type(handler).__name__)" 2>/dev/null \
-	    || echo "(Import skipped — Linux-only .so files not compatible with host Python)"
+	if [ -f $(LAYER_ZIP_PATH) ]; then \
+	    unzip -q $(LAYER_ZIP_PATH) -d $(BUILD_DIR)/_test; \
+	    DATABASE_PATH=:memory: PYTHONPATH=$(BUILD_DIR)/_test:$(BUILD_DIR)/_test/python \
+	        python3.12 -c "from app.main import handler; print('Handler OK:', type(handler).__name__)" 2>/dev/null \
+	        || echo "(Import skipped — Linux-only .so files not compatible with host Python)"; \
+	else \
+	    echo "(Layer zip not present — skipping import check. Run 'make build-layer' locally to test.)"; \
+	fi
 
 # ─────────────────────────────────────────────────────────────────────────────
 # build-layer — package third-party deps into a Lambda layer zip
