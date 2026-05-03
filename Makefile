@@ -15,15 +15,15 @@ OIDC_ROLE_NAME    ?= restart-lambda-github-actions
 # WordPress credentials — read from .env; override via env or CLI
 # ─────────────────────────────────────────────────────────────────────────────
 WP_PROD_URL        ?= $(call _env,WP_BASE_URL)
-WP_PROD_USER       ?= $(call _env,RR_DEV_USERNAME)
-WP_PROD_APP_PWD    ?= $(call _env,RR_DEV_APP_PWD)
+WP_PROD_USER       ?= $(call _env,WP_PROD_USERNAME)
+WP_PROD_APP_PWD    ?= $(call _env,WP_PROD_APP_PWD)
 
 WP_STAGING_URL     ?= $(call _env,WP_STAGING_BASE_URL)
-WP_STAGING_USER    ?= $(call _env,RR_DEV_USERNAME)
-WP_STAGING_APP_PWD ?= $(call _env,STAGING_DEV_APP_PWD)
+WP_STAGING_USER    ?= $(call _env,WP_DEV_USERNAME)
+WP_STAGING_APP_PWD ?= $(call _env,WP_STAGING_APP_PWD)
 
 WP_LOCAL_URL       ?= $(call _env,WP_LOCAL_URL)
-WP_LOCAL_USER      ?= $(call _env,WP_LOCAL_USER)
+WP_LOCAL_USER      ?= $(call _env,WP_DEV_USERNAME)
 WP_LOCAL_APP_PWD   ?= $(call _env,WP_LOCAL_APP_PWD)
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -107,7 +107,13 @@ build:
 	rm -rf $(PKG_DIR) $(SRC_DIR)
 	mkdir -p $(SRC_DIR) $(PKG_DIR)
 	git archive $(BRANCH) | tar -xf - -C $(SRC_DIR)
-	cd $(SRC_DIR) && uv pip install --python 3.12 --target ../package .
+	cd $(SRC_DIR) && pip install \
+	    --platform manylinux2014_x86_64 \
+	    --python-version 3.12 \
+	    --implementation cp \
+	    --only-binary :all: \
+	    --target ../package \
+	    .
 	rm -rf $(SRC_DIR)
 	cd $(PKG_DIR) && zip -qr ../lambda.zip .
 	@echo "Done: $(ZIP_PATH) ($$(du -sh $(ZIP_PATH) | cut -f1))"
