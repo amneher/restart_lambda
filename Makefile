@@ -178,22 +178,23 @@ publish-layer: build-layer
 	$(if $(filter $(ENV),staging prod),,$(error ENV must be 'staging' or 'prod'))
 	$(if $(DEPLOY_BUCKET),,$(error DEPLOY_BUCKET is required — set in .env))
 	$(eval _NAME := $(if $(filter $(ENV),prod),$(LAYER_NAME_PROD),$(LAYER_NAME_STAGING)))
-	$(eval _KEY  := layers/$(_NAME)-$(shell date +%Y%m%d%H%M%S).zip)
-	@echo "Uploading $(LAYER_ZIP_PATH) → s3://$(DEPLOY_BUCKET)/$(_KEY)…"
-	aws s3 cp $(LAYER_ZIP_PATH) s3://$(DEPLOY_BUCKET)/$(_KEY) --no-cli-pager
-	$(eval _ARN := $(shell aws lambda publish-layer-version \
+	@set -e; \
+	KEY="layers/$(_NAME)-$$(date +%Y%m%d%H%M%S).zip"; \
+	echo "Uploading $(LAYER_ZIP_PATH) → s3://$(DEPLOY_BUCKET)/$$KEY…"; \
+	aws s3 cp $(LAYER_ZIP_PATH) s3://$(DEPLOY_BUCKET)/$$KEY --no-cli-pager; \
+	ARN=$$(aws lambda publish-layer-version \
 	    --layer-name $(_NAME) \
-	    --content S3Bucket=$(DEPLOY_BUCKET),S3Key=$(_KEY) \
+	    --content S3Bucket=$(DEPLOY_BUCKET),S3Key=$$KEY \
 	    --compatible-runtimes python3.12 \
 	    --compatible-architectures x86_64 \
 	    --query LayerVersionArn \
 	    --output text \
-	    --no-cli-pager))
-	@echo ""
-	@echo "Published: $(_ARN)"
-	@echo ""
-	@echo "Add to .env:   LAYER_ARN_$(shell echo $(ENV) | tr a-z A-Z)=$(_ARN)"
-	@echo "Then run:      make configure-layer ENV=$(ENV)"
+	    --no-cli-pager); \
+	echo ""; \
+	echo "Published: $$ARN"; \
+	echo ""; \
+	echo "Add to .env:   LAYER_ARN_$$(echo $(ENV) | tr a-z A-Z)=$$ARN"; \
+	echo "Then run:      make configure-layer ENV=$(ENV)"
 
 # ─────────────────────────────────────────────────────────────────────────────
 # configure-layer — attach the stored layer ARN to a Lambda function
