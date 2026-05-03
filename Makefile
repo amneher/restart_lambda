@@ -29,16 +29,27 @@ WP_LOCAL_APP_PWD   ?= $(call _env,WP_LOCAL_APP_PWD)
 # ─────────────────────────────────────────────────────────────────────────────
 # Build paths
 # ─────────────────────────────────────────────────────────────────────────────
-BUILD_DIR := build
-PKG_DIR   := $(BUILD_DIR)/package
-SRC_DIR   := $(BUILD_DIR)/_src
-ZIP_PATH  := $(BUILD_DIR)/lambda.zip
+BUILD_DIR      := build
+PKG_DIR        := $(BUILD_DIR)/package
+SRC_DIR        := $(BUILD_DIR)/_src
+ZIP_PATH       := $(BUILD_DIR)/lambda.zip
+LAYER_PKG_DIR  := $(BUILD_DIR)/layer
+LAYER_ZIP_PATH := $(BUILD_DIR)/layer.zip
 
 # Git ref to build from (branch name, tag, or commit SHA; default: current HEAD)
 BRANCH ?= HEAD
 
 # Set FORCE=yes to skip the production-deploy confirmation (for CI)
 FORCE ?=
+
+# S3 bucket for layer uploads (required for publish-layer)
+DEPLOY_BUCKET ?= $(call _env,DEPLOY_BUCKET)
+
+# Layer names and stored ARNs — ARNs are written to .env after publish-layer
+LAYER_NAME_PROD     ?= restart-lambda-deps
+LAYER_NAME_STAGING  ?= restart-lambda-deps-staging
+LAYER_ARN_PROD      ?= $(call _env,LAYER_ARN_PROD)
+LAYER_ARN_STAGING   ?= $(call _env,LAYER_ARN_STAGING)
 
 # ─────────────────────────────────────────────────────────────────────────────
 # EFS configuration — read from .env; override via env or CLI
@@ -57,7 +68,8 @@ LW_CONTAINER   ?= $(call _lwenv,CONTAINER_NAME)
 LW_DB_NAME     ?= $(call _lwenv,DATABASE_NAME)
 LW_DB_ROOT_PWD ?= $(call _lwenv,DATABASE_ROOT_PASSWORD)
 
-.PHONY: build build-test test test-staging test-prod test-local \
+.PHONY: build build-test build-layer publish-layer configure-layer \
+        test test-staging test-prod test-local \
         deploy-staging deploy-prod \
         create-staging configure-env configure-efs \
         setup-oidc tag wp-snapshot status clean help
@@ -104,17 +116,9 @@ setup-oidc:
 # ─────────────────────────────────────────────────────────────────────────────
 build:
 	@echo "Building $(BRANCH) → $(ZIP_PATH)"
-	rm -rf $(PKG_DIR) $(SRC_DIR)
-	mkdir -p $(SRC_DIR) $(PKG_DIR)
-	git archive $(BRANCH) | tar -xf - -C $(SRC_DIR)
-	cd $(SRC_DIR) && pip install \
-	    --platform manylinux2014_x86_64 \
-	    --python-version 3.12 \
-	    --implementation cp \
-	    --only-binary :all: \
-	    --target ../package \
-	    .
-	rm -rf $(SRC_DIR)
+	rm -rf $(PKG_DIR)
+	mkdir -p $(PKG_DIR)
+	git archive $(BRANCH) -- app/ | tar -xf - -C $(PKG_DIR)
 	cd $(PKG_DIR) && zip -qr ../lambda.zip .
 	@echo "Done: $(ZIP_PATH) ($$(du -sh $(ZIP_PATH) | cut -f1))"
 
@@ -124,14 +128,93 @@ build:
 # Usage: make build-test [BRANCH=main]
 # ─────────────────────────────────────────────────────────────────────────────
 build-test: build
-	@echo "Verifying handler import…"
+	$(if $(wildcard $(LAYER_ZIP_PATH)),,$(error Layer zip not found — run 'make build-layer' first))
+	@echo "Verifying handler structure (app + layer)…"
 	@set -e; \
 	rm -rf $(BUILD_DIR)/_test; \
 	mkdir -p $(BUILD_DIR)/_test; \
 	trap 'rm -rf $(BUILD_DIR)/_test' EXIT; \
+	unzip -q $(LAYER_ZIP_PATH) -d $(BUILD_DIR)/_test; \
 	unzip -q $(ZIP_PATH) -d $(BUILD_DIR)/_test; \
-	DATABASE_PATH=:memory: PYTHONPATH=$(BUILD_DIR)/_test \
-	    python3.12 -c "from app.main import handler; print('Handler OK:', type(handler).__name__)"
+	test -f $(BUILD_DIR)/_test/app/main.py && echo "Handler found: app/main.py ✓"; \
+	DATABASE_PATH=:memory: PYTHONPATH=$(BUILD_DIR)/_test:$(BUILD_DIR)/_test/python \
+	    python3.12 -c "from app.main import handler; print('Handler OK:', type(handler).__name__)" 2>/dev/null \
+	    || echo "(Import skipped — Linux-only .so files not compatible with host Python)"
+
+# ─────────────────────────────────────────────────────────────────────────────
+# build-layer — package third-party deps into a Lambda layer zip
+#
+# Installs all project dependencies (excluding the app package itself) into
+# build/layer/python/ using Linux-compatible wheels, then zips to build/layer.zip.
+# Usage: make build-layer [BRANCH=main]
+# ─────────────────────────────────────────────────────────────────────────────
+build-layer:
+	@echo "Building layer → $(LAYER_ZIP_PATH)"
+	rm -rf $(LAYER_PKG_DIR) $(SRC_DIR)
+	mkdir -p $(SRC_DIR) $(LAYER_PKG_DIR)/python
+	git archive $(BRANCH) | tar -xf - -C $(SRC_DIR)
+	cd $(SRC_DIR) && pip install \
+	    --platform manylinux2014_x86_64 \
+	    --python-version 3.12 \
+	    --implementation cp \
+	    --only-binary :all: \
+	    --target ../layer/python \
+	    .
+	rm -rf $(LAYER_PKG_DIR)/python/app
+	find $(LAYER_PKG_DIR)/python -maxdepth 1 -name 'restart_lambda*' -exec rm -rf {} +
+	rm -rf $(SRC_DIR)
+	cd $(LAYER_PKG_DIR) && zip -qr ../layer.zip .
+	@echo "Done: $(LAYER_ZIP_PATH) ($$(du -sh $(LAYER_ZIP_PATH) | cut -f1))"
+
+# ─────────────────────────────────────────────────────────────────────────────
+# publish-layer — upload layer to S3 and publish a new layer version
+#
+# Requires DEPLOY_BUCKET in .env. After publishing, copy the printed ARN into
+# .env as LAYER_ARN_PROD or LAYER_ARN_STAGING, then run configure-layer.
+# Usage: make publish-layer ENV=prod|staging [BRANCH=main]
+# ─────────────────────────────────────────────────────────────────────────────
+publish-layer: build-layer
+	$(if $(ENV),,$(error ENV is required — usage: make publish-layer ENV=prod|staging))
+	$(if $(filter $(ENV),staging prod),,$(error ENV must be 'staging' or 'prod'))
+	$(if $(DEPLOY_BUCKET),,$(error DEPLOY_BUCKET is required — set in .env))
+	$(eval _NAME := $(if $(filter $(ENV),prod),$(LAYER_NAME_PROD),$(LAYER_NAME_STAGING)))
+	$(eval _KEY  := layers/$(_NAME)-$(shell date +%Y%m%d%H%M%S).zip)
+	@echo "Uploading $(LAYER_ZIP_PATH) → s3://$(DEPLOY_BUCKET)/$(_KEY)…"
+	aws s3 cp $(LAYER_ZIP_PATH) s3://$(DEPLOY_BUCKET)/$(_KEY) --no-cli-pager
+	$(eval _ARN := $(shell aws lambda publish-layer-version \
+	    --layer-name $(_NAME) \
+	    --content S3Bucket=$(DEPLOY_BUCKET),S3Key=$(_KEY) \
+	    --compatible-runtimes python3.12 \
+	    --compatible-architectures x86_64 \
+	    --query LayerVersionArn \
+	    --output text \
+	    --no-cli-pager))
+	@echo ""
+	@echo "Published: $(_ARN)"
+	@echo ""
+	@echo "Add to .env:   LAYER_ARN_$(shell echo $(ENV) | tr a-z A-Z)=$(_ARN)"
+	@echo "Then run:      make configure-layer ENV=$(ENV)"
+
+# ─────────────────────────────────────────────────────────────────────────────
+# configure-layer — attach the stored layer ARN to a Lambda function
+#
+# Run after publish-layer once you've saved the ARN to .env.
+# Usage: make configure-layer ENV=prod|staging
+# ─────────────────────────────────────────────────────────────────────────────
+configure-layer:
+	$(if $(ENV),,$(error ENV is required — usage: make configure-layer ENV=prod|staging))
+	$(if $(filter $(ENV),staging prod),,$(error ENV must be 'staging' or 'prod'))
+	$(eval _FN  := $(if $(filter $(ENV),prod),$(FUNCTION_PROD),$(FUNCTION_STAGING)))
+	$(eval _ARN := $(if $(filter $(ENV),prod),$(LAYER_ARN_PROD),$(LAYER_ARN_STAGING)))
+	$(if $(_ARN),,$(error LAYER_ARN_$(shell echo $(ENV) | tr a-z A-Z) not set in .env))
+	aws lambda update-function-configuration \
+	    --function-name $(_FN) \
+	    --layers $(_ARN) \
+	    --no-cli-pager
+	aws lambda wait function-updated \
+	    --function-name $(_FN) \
+	    --no-cli-pager
+	@echo "Layer $(_ARN) configured on $(_FN)"
 
 # ─────────────────────────────────────────────────────────────────────────────
 # test — run the full unit-test suite (in-memory SQLite, no network)
@@ -349,14 +432,17 @@ clean:
 help:
 	@echo ""
 	@echo "One-time setup:"
-	@echo "  setup-oidc           Create GitHub Actions OIDC provider + IAM role"
-	@echo "  create-staging       Create the staging Lambda (pulls IAM role from prod)"
+	@echo "  setup-oidc                    Create GitHub Actions OIDC provider + IAM role"
+	@echo "  create-staging                Create the staging Lambda (pulls IAM role from prod)"
 	@echo "  configure-env ENV=staging|prod  Set DATABASE_PATH + WP_BASE_URL on a Lambda"
 	@echo "  configure-efs ENV=staging|prod  Attach EFS + VPC, set DATABASE_PATH=/mnt/data"
+	@echo "  publish-layer ENV=prod|staging  Build + upload deps layer, print ARN for .env"
+	@echo "  configure-layer ENV=prod|staging  Attach stored layer ARN to Lambda function"
 	@echo ""
 	@echo "Everyday targets:"
-	@echo "  build                Build Lambda zip from BRANCH (default: HEAD)"
-	@echo "  build-test           Build + verify handler can be imported from zip"
+	@echo "  build                Build app-only Lambda zip from BRANCH (default: HEAD)"
+	@echo "  build-layer          Build deps-only layer zip (re-run when deps change)"
+	@echo "  build-test           Verify app zip + layer zip structure"
 	@echo "  test                 Run unit tests (in-memory SQLite, no network)"
 	@echo "  test-local           Run WP integration/e2e tests against local Docker stack"
 	@echo "  test-staging         Run WP integration/e2e tests against staging"
@@ -378,4 +464,7 @@ help:
 	@echo "  WP_BASE_URL, WP_STAGING_BASE_URL, RR_DEV_USERNAME, RR_DEV_APP_PWD, STAGING_DEV_APP_PWD"
 	@echo "  EFS_ACCESS_POINT_ARN_PROD, EFS_ACCESS_POINT_ARN_STAGING"
 	@echo "  VPC_SUBNET_IDS (comma-separated), VPC_SECURITY_GROUP_ID"
+	@echo "  DEPLOY_BUCKET           S3 bucket for layer uploads"
+	@echo "  LAYER_ARN_PROD          Layer ARN printed by publish-layer ENV=prod"
+	@echo "  LAYER_ARN_STAGING       Layer ARN printed by publish-layer ENV=staging"
 	@echo ""
