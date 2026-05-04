@@ -116,7 +116,7 @@ setup-oidc:
 # ─────────────────────────────────────────────────────────────────────────────
 build:
 	@echo "Building $(BRANCH) → $(ZIP_PATH)"
-	rm -rf $(PKG_DIR)
+	rm -rf $(PKG_DIR) $(ZIP_PATH)
 	mkdir -p $(PKG_DIR)
 	git archive $(BRANCH) -- app/ | tar -xf - -C $(PKG_DIR)
 	cd $(PKG_DIR) && zip -qr ../lambda.zip .
@@ -138,7 +138,7 @@ build-test: build
 	if [ -f $(LAYER_ZIP_PATH) ]; then \
 	    unzip -q $(LAYER_ZIP_PATH) -d $(BUILD_DIR)/_test; \
 	    DATABASE_PATH=:memory: PYTHONPATH=$(BUILD_DIR)/_test:$(BUILD_DIR)/_test/python \
-	        python3.12 -c "from app.main import handler; print('Handler OK:', type(handler).__name__)" 2>/dev/null \
+	        python3.14 -c "from app.main import handler; print('Handler OK:', type(handler).__name__)" 2>/dev/null \
 	        || echo "(Import skipped — Linux-only .so files not compatible with host Python)"; \
 	else \
 	    echo "(Layer zip not present — skipping import check. Run 'make build-layer' locally to test.)"; \
@@ -158,7 +158,7 @@ build-layer:
 	git archive $(BRANCH) | tar -xf - -C $(SRC_DIR)
 	cd $(SRC_DIR) && pip install \
 	    --platform manylinux2014_x86_64 \
-	    --python-version 3.12 \
+	    --python-version 3.14 \
 	    --implementation cp \
 	    --only-binary :all: \
 	    --target ../layer/python \
@@ -188,7 +188,7 @@ publish-layer: build-layer
 	ARN=$$(aws lambda publish-layer-version \
 	    --layer-name $(_NAME) \
 	    --content S3Bucket=$(DEPLOY_BUCKET),S3Key=$$KEY \
-	    --compatible-runtimes python3.12 \
+	    --compatible-runtimes python3.14 \
 	    --compatible-architectures x86_64 \
 	    --query LayerVersionArn \
 	    --output text \
@@ -224,7 +224,7 @@ configure-layer:
 # test — run the full unit-test suite (in-memory SQLite, no network)
 # ─────────────────────────────────────────────────────────────────────────────
 test:
-	pytest tests/ -v
+	.venv/bin/pytest tests/ -v
 
 # ─────────────────────────────────────────────────────────────────────────────
 # test-staging — run WordPress integration + e2e tests against staging
@@ -233,7 +233,7 @@ test-staging:
 	WP_LOCAL_URL="$(WP_STAGING_URL)" \
 	WP_LOCAL_USER="$(WP_STAGING_USER)" \
 	WP_LOCAL_APP_PWD="$(WP_STAGING_APP_PWD)" \
-	pytest tests/test_registry_wp_integration.py tests/test_registry_e2e.py -v
+	.venv/bin/pytest tests/test_registry_wp_integration.py tests/test_registry_e2e.py -v
 
 # ─────────────────────────────────────────────────────────────────────────────
 # test-prod — run WordPress integration + e2e tests against production
@@ -242,7 +242,7 @@ test-prod:
 	WP_LOCAL_URL="$(WP_PROD_URL)" \
 	WP_LOCAL_USER="$(WP_PROD_USER)" \
 	WP_LOCAL_APP_PWD="$(WP_PROD_APP_PWD)" \
-	pytest tests/test_registry_wp_integration.py tests/test_registry_e2e.py -v
+	.venv/bin/pytest tests/test_registry_wp_integration.py tests/test_registry_e2e.py -v
 
 # ─────────────────────────────────────────────────────────────────────────────
 # test-local — run integration + e2e tests against the local WordPress stack
@@ -260,17 +260,17 @@ test-local:
 	    echo "Starting local_wordpress…"; \
 	    docker compose -f ../local_wordpress/docker-compose.yml --project-directory ../local_wordpress up -d; \
 	    echo "Waiting for MySQL…"; \
-	    until docker exec $(LW_CONTAINER)-database mysqladmin ping -uroot -p$(LW_DB_ROOT_PWD) --silent 2>/dev/null; do sleep 2; done; \
+	    until docker exec $(LW_CONTAINER)-database mysqladmin ping -h 127.0.0.1 -uroot -p$(LW_DB_ROOT_PWD) --silent 2>/dev/null; do sleep 2; done; \
 	fi
 	@echo "Restoring WordPress snapshot…"
 	docker exec -i $(LW_CONTAINER)-database \
-	    mysql -uroot -p$(LW_DB_ROOT_PWD) $(LW_DB_NAME) \
+	    mysql -h 127.0.0.1 -uroot -p$(LW_DB_ROOT_PWD) $(LW_DB_NAME) \
 	    < tests/fixtures/wp-clean.sql
 	@echo "Running integration + e2e tests…"
 	WP_LOCAL_URL="$(WP_LOCAL_URL)" \
 	WP_LOCAL_USER="$(WP_LOCAL_USER)" \
 	WP_LOCAL_APP_PWD="$(WP_LOCAL_APP_PWD)" \
-	pytest tests/test_registry_wp_integration.py tests/test_registry_e2e.py -v
+	.venv/bin/pytest tests/test_registry_wp_integration.py tests/test_registry_e2e.py -v
 
 # ─────────────────────────────────────────────────────────────────────────────
 # wp-snapshot — dump the local WordPress DB into tests/fixtures/wp-clean.sql
@@ -284,8 +284,10 @@ wp-snapshot:
 	$(if $(LW_CONTAINER),,$(error Could not read CONTAINER_NAME from ../local_wordpress/.env))
 	@echo "Capturing WordPress snapshot from $(LW_CONTAINER)-database…"
 	mkdir -p tests/fixtures
+	@echo "Waiting for MySQL to be ready…"; \
+	    until docker exec $(LW_CONTAINER)-database mysqladmin ping -h 127.0.0.1 -uroot -p$(LW_DB_ROOT_PWD) --silent 2>/dev/null; do sleep 2; done
 	docker exec $(LW_CONTAINER)-database \
-	    mysqldump -uroot -p$(LW_DB_ROOT_PWD) $(LW_DB_NAME) \
+	    mysqldump -h 127.0.0.1 -uroot -p$(LW_DB_ROOT_PWD) $(LW_DB_NAME) \
 	    > tests/fixtures/wp-clean.sql
 	@echo "Saved: tests/fixtures/wp-clean.sql ($$(du -sh tests/fixtures/wp-clean.sql | cut -f1))"
 
@@ -302,7 +304,7 @@ create-staging: build
 	$(if $(_ROLE),,$(error Could not retrieve IAM role from $(FUNCTION_PROD) — check AWS credentials))
 	aws lambda create-function \
 	    --function-name $(FUNCTION_STAGING) \
-	    --runtime python3.12 \
+	    --runtime python3.14 \
 	    --role $(_ROLE) \
 	    --handler app.main.handler \
 	    --zip-file fileb://$(ZIP_PATH) \
