@@ -1,3 +1,6 @@
+> [!NOTE]
+> **This repository has been archived.** Development continues in the [restart monorepo](https://github.com/amneher/restart).
+
 # Restart Registry — Lambda API
 
 A FastAPI service that runs on AWS Lambda, managing gift-registry **items** in SQLite. Registry metadata (ownership, invitees, event info) lives in WordPress as a custom post type; this service stores the items and exposes them over HTTP.
